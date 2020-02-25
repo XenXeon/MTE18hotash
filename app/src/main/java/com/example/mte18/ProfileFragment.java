@@ -4,15 +4,20 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.ContentValues;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +25,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -29,7 +36,11 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 import com.squareup.picasso.Picasso;
+
+import static android.app.Activity.RESULT_OK;
 
 
 public class ProfileFragment extends Fragment {
@@ -39,6 +50,10 @@ public class ProfileFragment extends Fragment {
     FirebaseDatabase firebaseDatabase;
     DatabaseReference databaseReference;
 
+    StorageReference storageReference;
+
+    String storagePath = "Users_Profile_Cover_Imgs/";
+
     ImageView avatarIv, coverIv;
     TextView nameTv, emailTv, phoneTv;
     FloatingActionButton fab;
@@ -47,11 +62,15 @@ public class ProfileFragment extends Fragment {
 
     private static final int CAMERA_REQUEST_CODE = 100;
     private static final int STORAGE_REQUEST_CODE = 200;
-    private static final int IMAGE_PICK_GALLERY_REQUEST_CODE = 300;
-    private static final int IMAGE_PICK_CAMERA_REQUEST_CODE = 400;
+    private static final int IMAGE_PICK_GALLERY_CODE = 300;
+    private static final int IMAGE_PICK_CAMERA_CODE = 400;
 
     String cameraPermissions[];
     String storagePermissions[];
+
+    Uri image_uri;
+
+    String profileOrCoverPhoto;
 
     public ProfileFragment() {
         // Required empty public constructor
@@ -173,11 +192,14 @@ public class ProfileFragment extends Fragment {
             public void onClick(DialogInterface dialog, int which) {
                 if (which == 0) {
                     pd.setMessage("Updating Profile Picture");
+                    profileOrCoverPhoto = "image";
                     showImagePicDialog();
                 }
                 else if (which == 1) {
 
                     pd.setMessage("Updating Cover Photo");
+                    profileOrCoverPhoto = "cover";
+                    showImagePicDialog();
 
                 }
                 else if (which == 2) {
@@ -260,10 +282,60 @@ public class ProfileFragment extends Fragment {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+
+        if (resultCode == RESULT_OK){
+            if (requestCode == IMAGE_PICK_GALLERY_CODE){
+                image_uri = data.getData();
+
+                uploadProfileCoverPhoto(image_uri);
+            }
+            if (requestCode == IMAGE_PICK_CAMERA_CODE){
+
+                uploadProfileCoverPhoto(image_uri);
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private void uploadProfileCoverPhoto(Uri uri) {
+        pd.show();
+
+        String filePathAndName = storagePath+ ""+ profileOrCoverPhoto +"_"+user.getUid();
+
+        StorageReference storageReference2nd = storageReference.child(filePathAndName);
+        storageReference2nd.putFile(uri)
+                .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                    @Override
+                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        pd.dismiss();
+                    }
+                });
+    }
+
     private void pickFromCamera() {
+        ContentValues values = new ContentValues();
+
+        values.put(MediaStore.Images.Media.TITLE, "Temp Pic");
+        values.put(MediaStore.Images.Media.DESCRIPTION, "Temp Description");
+
+        image_uri = getActivity().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+
+        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, image_uri);
+        startActivityForResult(cameraIntent, IMAGE_PICK_CAMERA_CODE);
     }
 
     private void pickFromGallery() {
-
+        Intent galleryIntent = new Intent(Intent.ACTION_PICK);
+                galleryIntent.setType("Image/*");
+                startActivityForResult(galleryIntent, IMAGE_PICK_GALLERY_CODE);
     }
 }
