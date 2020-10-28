@@ -21,8 +21,6 @@ public class DashboardActivity extends AppCompatActivity {
 
     ActionBar actionBar;
 
-    TextView mProfileTv;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -36,10 +34,9 @@ public class DashboardActivity extends AppCompatActivity {
 
         firebaseAuth = FirebaseAuth.getInstance();
 
-        mProfileTv = findViewById(R.id.profileTv);
-
         BottomNavigationView navigationView = findViewById(R.id.navigation);
         navigationView.setOnNavigationItemSelectedListener(selectedListener);
+
 
         actionBar.setTitle("Home");
         HomeFragment fragment1 = new HomeFragment();
